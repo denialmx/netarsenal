@@ -84,15 +84,5 @@ class NetArsenal(object):
                 f = filter_list[i]
             else:
                 f = f & filter_list[i]
-
-        a = (
-            (F(groups__contains="ssp") | F(groups__contains="gor"))
-            & (F(role="core") | F(role="dist"))
-            & (F(platform="ios"))
-        )
-
-        hosts = self.nornir.filter(a)
-
         hosts = self.nornir.filter(f)
-
         return hosts
