@@ -45,23 +45,48 @@ class NetArsenal(object):
                 result = {"status": 500}
         return result
 
-    def get_hosts_with(self, *args, **kwargs):
+    def get_hosts_with_simple_filter(self, *args, **kwargs):
         attribute_list = ""
-        f = F()
+        filter_list = []
+
         for attribute in kwargs:
+            initiator = True
             if "," in kwargs[attribute]:
                 attribute_list = kwargs[attribute].split(",")
-                site_filter = "F(groups__contains='{}') | F(groups__contains='gor')".format(
-                    attribute_list
-                )
-        hosts = self.nornir.filter(
-            (F(groups__contains=attribute_list)) & (F(role="core") | F(role="dist"))
+                for value in attribute_list:
+                    if attribute == "site":
+                        if initiator:
+                            f = F(groups__contains=value)
+                            initiator = False
+                        else:
+                            f = f | F(groups__contains=value)
+                    if attribute == "role":
+                        if initiator:
+                            f = F(role=value)
+                            initiator = False
+                        else:
+                            f = f | F(role=value)
+                    if attribute == "platform":
+                        if initiator:
+                            f = F(platform=value)
+                            initiator = False
+                        else:
+                            f = f | F(platform=value)
+            filter_list.append(f)
+
+        for i in range(len(filter_list)):
+            if i == 0:
+                f = f | filter_list[i]
+            else:
+                f = f & filter_list[i]
+
+        a = (F(groups__contains="ssp") | F(groups__contains="gor")) & (
+            F(role="core") | F(role="dist")
         )
 
-        hosts = self.nornir.filter(site="ssp", role="core")
+        hosts = self.nornir.filter(a)
 
-        # THIS IS VERY DANGEROUS
-        hosts = self.nornir.filter(eval(site_filter))
+        hosts = self.nornir.filter(f)
 
         return hosts
 
