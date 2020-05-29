@@ -53,48 +53,46 @@ class NetArsenal(object):
             initiator = True
             if "," in kwargs[attribute]:
                 attribute_list = kwargs[attribute].split(",")
-                for value in attribute_list:
-                    if attribute == "site":
-                        if initiator:
-                            f = F(groups__contains=value)
-                            initiator = False
-                        else:
-                            f = f | F(groups__contains=value)
-                    if attribute == "role":
-                        if initiator:
-                            f = F(role=value)
-                            initiator = False
-                        else:
-                            f = f | F(role=value)
-                    if attribute == "platform":
-                        if initiator:
-                            f = F(platform=value)
-                            initiator = False
-                        else:
-                            f = f | F(platform=value)
+            else:
+                attribute_list = kwargs[attribute].split()
+            for value in attribute_list:
+                if attribute == "site":
+                    if initiator:
+                        f = F(groups__contains=value)
+                        initiator = False
+                    else:
+                        f = f | F(groups__contains=value)
+                    continue
+                if attribute == "role":
+                    if initiator:
+                        f = F(role=value)
+                        initiator = False
+                    else:
+                        f = f | F(role=value)
+                    continue
+                if attribute == "platform":
+                    if initiator:
+                        f = F(platform=value)
+                        initiator = False
+                    else:
+                        f = f | F(platform=value)
+                    continue
             filter_list.append(f)
 
         for i in range(len(filter_list)):
             if i == 0:
-                f = f | filter_list[i]
+                f = filter_list[i]
             else:
                 f = f & filter_list[i]
 
-        a = (F(groups__contains="ssp") | F(groups__contains="gor")) & (
-            F(role="core") | F(role="dist")
+        a = (
+            (F(groups__contains="ssp") | F(groups__contains="gor"))
+            & (F(role="core") | F(role="dist"))
+            & (F(platform="ios"))
         )
 
         hosts = self.nornir.filter(a)
 
         hosts = self.nornir.filter(f)
-
-        return hosts
-
-    def get_hosts_from_groups(self, *args, **kwargs):
-        hosts = {}
-        for site in kwargs:
-            if site == "site":
-                site_list = kwargs["site"]
-        hosts = self.nornir.filter(F(groups__contains=site_list))
 
         return hosts
