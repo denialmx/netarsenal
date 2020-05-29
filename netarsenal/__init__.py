@@ -1,3 +1,3 @@
- import logging
- __version__ = "0.1"
+import logging
 
+__version__ = "0.1"
