@@ -9,7 +9,7 @@ from nornir.core.filter import F
 
 from netarsenal.cisco.ios import iosarsenal
 from netarsenal.cisco.nxos import nxosarsenal
-from netarsenal.mock import Marsenal
+from netarsenal.mock.ios import Miosarsenal
 import netarsenal.cons as cons
 import netarsenal.exceptions as netex
 
@@ -33,7 +33,7 @@ class NetArsenal(object):
     arsenal = {
         "ios": iosarsenal.IOSArsenal(),
         "nxos": nxosarsenal.NXOSArsenal(),
-        "mock": Marsenal.MockArsenal(mock_file),
+        "mock": Miosarsenal.MockIOSArsenal("tests/mock/ios/MockIOSdata.bin"),
         "viptela": object,
         "iosxe": object,
     }

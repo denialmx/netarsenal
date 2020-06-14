@@ -10,6 +10,10 @@ ntc-templates/
 netarsenal/config/*
 **/__pycache__/*
 **/*.yml
+<<<<<<< HEAD
+=======
+**/*.json
+>>>>>>> d5dbbe1f442d734fbf39f6df34f6f8bdcbb3af8c
 
 # other files
 go.py
