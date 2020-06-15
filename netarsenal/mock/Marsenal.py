@@ -1,6 +1,6 @@
 import logging
 import json
-import tinydb
+from tinydb import TinyDB, Query
 import random
 import base64
 import os
@@ -52,35 +52,51 @@ class MockArsenal(object):
     save_state = False
     state_id = None
     path = ""
+    db = ""
     key = "0"
     valid_mock = False
 
     def __init__(self, path=None, key=0):
-        print("Creating MockIOS Object")
+        logging.info("Creating MockIOS Object")
+        logging.debug("Checking if {} is valid".format(path))
+        if path:
+            self.db = TinyDB(path)
+            table_devices = self.db.table("devices")
+            if not "devices" in self.db.tables():
 
-        self.path = path
-        if key:
-            self.key = key
-        # Read MockIOSdata.s state file, this s file, is to emulate state of device
-        # Hopefully, you can run commands and get state for past events
-        try:
-            with open(self.path, "a+", encoding="utf-8") as mock_file:
-                mock_file_size = mock_file.tell()
-                mock_file.seek(0, os.SEEK_SET)
-                if mock_file_size > 0:
-                    version = mock_file.read(40)
-                    if re.search(r"^__mockdv\d+.\d+-->", version):
-                        self.valid_mock = True
-                    else:
-                        raise mockex.InvalidMockDataFile
-                else:
-                    mock_file.write("__mockdv0.1-->\n")
-                    self.valid_mock = True
-        except:
-            logging.error("Could not open file {}".format(path))
+                table_devices.insert(
+                    {
+                        "device_name": "SWCORE1",
+                        "device_id": "HASH_NAME",
+                        "insertion_date": "<DATE>",
+                        "update_date": "LAST_TIME_UPDATED",
+                        "states": {
+                            "state_id": "HASH_DEVICENAME_DATE",
+                            "command": "command",
+                            "data": "<data>",
+                        },
+                    }
+                )
+                device = Query()
+                table_devices.search(device.device_name)
+                table_devices.truncate()
+            else:
+                table_devices.insert(
+                    {
+                        "device_name": "SWCORE1",
+                        "device_id": "HASH_NAME",
+                        "insertion_date": "<DATE>",
+                        "update_date": "LAST_TIME_UPDATED",
+                        "states": {
+                            "state_id": "HASH_DEVICENAME_DATE",
+                            "command": "command",
+                            "data": "<data>",
+                        },
+                    }
+                )
 
-    def __return_file_offset(self, mock_file, current_seek, offset_string):
-        print(1)
+        else:
+            raise mockex.InvalidMockDataFile
 
     def __find_in_file(self, mock_file, start_offset=0, look_for="\n", chunk_size=4096):
         seek = -1
@@ -112,7 +128,7 @@ class MockArsenal(object):
                     return -1
                 return found
 
-    def record(self, file_path=None):
+    def record(self, db_file=None):
         if self.valid_mock:
             self.save_state = True
             if not self.state_id:
@@ -122,7 +138,6 @@ class MockArsenal(object):
 
     def pause(self):
         self.save_state = False
-        self.state_id = None
 
     def check(self):
         return self.save_state

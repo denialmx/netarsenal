@@ -33,20 +33,22 @@ class NetArsenal(object):
     arsenal = {
         "ios": iosarsenal.IOSArsenal(),
         "nxos": nxosarsenal.NXOSArsenal(),
-        "mock": Marsenal.MockArsenal(),
+        "mock": object,
         "viptela": object,
         "iosxe": object,
     }
 
     # init
-    def __init__(self, configfile, num_workers):
+    def __init__(self, configfile, num_workers, db_file=None):
+        if db_file:
+            self.arsenal["mock"] = Marsenal.MockArsenal(db_file)
         self.nornir = InitNornir(
             config_file=configfile,
             core={"num_workers": num_workers},
             inventory={"plugin": "netarsenal.inventory.include.Includentory"},
         )
 
-    def _mock_record(self):
+    def _mock_record(self, db_file=None):
         self.arsenal["mock"].record()
 
     def _mock_pause(self):
