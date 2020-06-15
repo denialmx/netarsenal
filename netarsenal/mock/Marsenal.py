@@ -5,8 +5,12 @@ import random
 import base64
 import os
 import re
-import netarsenal.mock.exceptions as mockex
 from datetime import datetime
+
+try:
+    import mockex
+except:
+    import netarsenal.mock.mockex as mockex
 
 
 # Find out how to import
