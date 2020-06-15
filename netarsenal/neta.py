@@ -33,7 +33,7 @@ class NetArsenal(object):
     arsenal = {
         "ios": iosarsenal.IOSArsenal(),
         "nxos": nxosarsenal.NXOSArsenal(),
-        "mock": Marsenal.MockArsenal("tests/mock/ios/MockIOSdata.bin"),
+        "mock": Marsenal.MockArsenal(),
         "viptela": object,
         "iosxe": object,
     }

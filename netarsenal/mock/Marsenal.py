@@ -5,7 +5,7 @@ import random
 import base64
 import os
 import re
-import exceptions as mockex
+import netarsenal.mock.exceptions as mockex
 from datetime import datetime
 
 
@@ -51,7 +51,7 @@ class MockArsenal(object):
     key = "0"
     valid_mock = False
 
-    def __init__(self, path, key=0):
+    def __init__(self, path=None, key=0):
         print("Creating MockIOS Object")
 
         self.path = path
@@ -108,7 +108,7 @@ class MockArsenal(object):
                     return -1
                 return found
 
-    def record(self):
+    def record(self, file_path=None):
         if self.valid_mock:
             self.save_state = True
             if not self.state_id:
