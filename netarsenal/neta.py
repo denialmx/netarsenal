@@ -2,13 +2,14 @@
 import sys
 import ruamel.yaml
 import re
-from copy import deepcopy
+from copy import deepcopy, copy
 
 from nornir import InitNornir
 from nornir.core.filter import F
 
 from netarsenal.cisco.ios import iosarsenal
 from netarsenal.cisco.nxos import nxosarsenal
+from netarsenal.cisco.wlc import wlcarsenal
 from netarsenal.mock import Marsenal
 import netarsenal.cons as cons
 import netarsenal.exceptions as netex
@@ -28,20 +29,20 @@ class NetArsenal(object):
     nornir = object
     netmiko = object
     textfm = object
-    mock_file = None
 
     arsenal = {
         "ios": iosarsenal.IOSArsenal(),
         "nxos": nxosarsenal.NXOSArsenal(),
-        "mock": object,
+        "mock": Marsenal.MockArsenal(),
+        "wlc": wlcarsenal.WLCArsenal(),
         "viptela": object,
         "iosxe": object,
     }
 
     # init
-    def __init__(self, configfile, num_workers, db_file=None):
-        if db_file:
-            self.arsenal["mock"] = Marsenal.MockArsenal(db_file)
+    def __init__(self, configfile, num_workers, mock_path=None):
+        if mock_path:
+            self.arsenal["mock"].opendb(mock_path, True)
         self.nornir = InitNornir(
             config_file=configfile,
             core={"num_workers": num_workers},
@@ -56,6 +57,9 @@ class NetArsenal(object):
 
     def _mock_check(self):
         return self.arsenal["mock"].check()
+
+    def _mock_start(self):
+        return self.arsenal["mock"].start()
 
     def __execute_and_aggregate(
         self, nornir=object, divider="platform", *args, **kwargs
@@ -73,7 +77,10 @@ class NetArsenal(object):
         results = []
 
         if self._mock_check():
-            mock = deepcopy(self.arsenal["mock"])
+            mock = copy(self.arsenal["mock"])
+            if mock.use_mock:
+                mock.change_platform(t_nornir)
+                mock.mock_command = command_picker
         else:
             mock = None
 
@@ -83,6 +90,10 @@ class NetArsenal(object):
                 for host in list(t_nornir.inventory.hosts):
                     # Check platform of host
                     pop_filter = getattr(t_nornir.inventory.hosts[host], divider)
+                    # split pop_filter with an -
+                    # pop_filter[0] will always have the right platform, either
+                    # ios, nxos, mock
+                    pop_filter = pop_filter.split("-")[0]
                     if not current_pop_filter:
                         current_pop_filter = pop_filter
                     if pop_filter != current_pop_filter:
@@ -116,7 +127,7 @@ class NetArsenal(object):
                     self.arsenal[current_pop_filter],
                     functions_to_call[current_pop_filter],
                 )
-                result = N(t_nornir, use_textfsm=True)
+                result = N(t_nornir, use_textfsm=True, mock=mock)
                 results.append(result)
                 pop.pop(host)
         return results

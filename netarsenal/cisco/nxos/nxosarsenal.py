@@ -9,7 +9,7 @@ class NXOSArsenal(object):
     def __init__(self):
         print("Creating NXOS Object")
 
-    def get_show_cdp_neighbors(self, nornir_object=None, use_textfsm=False):
+    def show_cdp_neighbors(self, nornir_object=None, use_textfsm=False):
         command = "show cdp neighbors detail"
         params = {
             "command_string": command,

@@ -21,7 +21,10 @@ class IOSArsenal(object):
         if mock:
             params["use_textfsm"] = False
 
-        if nornir:
+        # Need to fix this, as sometimes mock = None and this fails
+        if nornir and not mock.use_mock:
+            result = nornir.run(task=netmiko_send_command, **params)
+        else:
             result = nornir.run(task=netmiko_send_command, **params)
         if mock:
             for device in result:

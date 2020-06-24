@@ -7,7 +7,8 @@ platform_mapping_commands = {
     "functions": {
         "_get_l2_neighbors": {
             "ios": "show_cdp_neighbors",
-            "nxos": "get_show_cdp_neighbors",
+            "nxos": "show_cdp_neighbors",
+            "mock": "mock_send_command",
         }
     },
     "commands": {"show version": {"ios": True, "nxos": True}},
