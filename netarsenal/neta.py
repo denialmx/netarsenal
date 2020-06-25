@@ -123,6 +123,7 @@ class NetArsenal(object):
                 host = next(iter(t_nornir.inventory.hosts))
                 # Check platform of host
                 current_pop_filter = getattr(t_nornir.inventory.hosts[host], divider)
+                current_pop_filter = current_pop_filter.split("-")[0]
                 N = getattr(
                     self.arsenal[current_pop_filter],
                     functions_to_call[current_pop_filter],

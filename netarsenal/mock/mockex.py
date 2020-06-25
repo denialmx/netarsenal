@@ -12,3 +12,10 @@ class InvalidMockDataFile(MockException):
     Exception raised when the mock data file
     is incorrect or corrupted
     """
+
+
+class MockDeviceNotFound(MockException):
+    """
+    Exception raised when the mock data file
+    does not have the device and or command saved
+    """

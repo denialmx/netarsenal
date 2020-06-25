@@ -67,7 +67,6 @@ class MockArsenal(object):
     def __extract_mock_data(self, task, **kwargs):
         # Extract mock data from path.
         # validate errors
-        print(1)
         if "mock" in task.host.platform:
             real_platform = task.host.platform.split("-")[1]
             command = return_platform_function(kwargs["command_string"])
@@ -76,8 +75,17 @@ class MockArsenal(object):
                 self.query.device_name == task.host.name
             )
             # check states, return last state or return if state_id provided
-
-        print(f"hi! My name is {task.host.name} and I live in {task.host['site']}")
+            if len(device_exists) > 0:
+                extract = device_exists[0][
+                    "state{}".format(device_exists[0]["last_state_dict_id"])
+                ]
+                if command[real_platform] == extract["command"]:
+                    data = base64.decodestring(extract["data"].encode()).decode("utf-8")
+                    return data
+                else:
+                    return "Timeout"
+            else:
+                raise mockex.MockDeviceNotFound
 
     def opendb(self, path, create_on_open=False):
         if path:
@@ -141,9 +149,7 @@ class MockArsenal(object):
             "command_string": command,
         }
         result = nornir.run(task=self.__extract_mock_data, **params)
-        print(command)
-
-        return command
+        return result
 
     def change_platform(self, nornir):
         # grab the nornir object and change the platform to mock
