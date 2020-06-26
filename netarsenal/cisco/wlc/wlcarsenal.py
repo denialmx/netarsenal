@@ -20,4 +20,4 @@ class WLCArsenal(object):
             command (str): [description]
             use_textfsm (str, optional): [description]. Defaults to True.
         """
-        print(1)
+        print(2)
