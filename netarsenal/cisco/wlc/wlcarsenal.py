@@ -11,5 +11,13 @@ class WLCArsenal(object):
     def __init__(self):
         print("Creating WLC Object")
 
-    def send_command(self, nornir=object, use_textfsm=False, mock=None):
+    def send_command(self, devices, mock, command: str, use_textfsm: str = True):
+        """[summary]
+
+        Args:
+            devices ([type]): [description]
+            mock ([type]): [description]
+            command (str): [description]
+            use_textfsm (str, optional): [description]. Defaults to True.
+        """
         print(1)

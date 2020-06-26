@@ -14,10 +14,6 @@ from netarsenal.mock import Marsenal
 import netarsenal.cons as cons
 import netarsenal.exceptions as netex
 
-# TO REMOVE
-from nornir.plugins.tasks.networking import netmiko_send_command
-from nornir.plugins.functions.text import print_result
-
 # definitions
 
 # class
@@ -62,12 +58,8 @@ class NetArsenal(object):
         return self.arsenal["mock"].start()
 
     def __execute_and_aggregate(
-        self, nornir=object, divider="platform", *args, **kwargs
+        self, nornir: InitNornir, divider: str = "platform", *args, **kwargs
     ):
-        # Currently only platform is supported as a divider
-        # Need to put the logic inside to make [data] available as a divider as well (on top of platform)
-        # in case someone wants to execute a command and divide it by site
-        # I might remove entirely the feature as well and always leave it as platform independent only
         command_picker = sys._getframe(1).f_code.co_name
         functions_to_call = cons.return_platform_function(command_picker)
         # TODO validate nornir is object of InitNornir
@@ -181,9 +173,13 @@ class NetArsenal(object):
         return result
 
     def _get_l2_neighbors(self, nornir=object, *args, **kwargs):
+        if "use_textfsm" in kwargs:
+            use_textfsm = True
+        else:
+            use_textfsm = False
 
         results = self.__execute_and_aggregate(
-            nornir, divider="platform", use_textfsm=True
+            nornir, divider="platform", use_textfsm=use_textfsm
         )
         return results
 

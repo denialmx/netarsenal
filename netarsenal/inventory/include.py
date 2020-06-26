@@ -17,6 +17,14 @@ import json
 
 class Includentory(Inventory):
     def __init__(self, config_file="config.yml", *args: Any, **kwargs: Any):
+        """[summary]
+
+        Args:
+            config_file (str, optional): [description]. Defaults to "config.yml".
+
+        Raises:
+            EnvironmentError: [description]
+        """
 
         # Define variables
         hosts = {}
