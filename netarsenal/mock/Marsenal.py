@@ -13,6 +13,10 @@ except:
     import netarsenal.mock.mockex as mockex
 
 from nornir.core.task import Task
+from nornir import InitNornir as Nornir
+from nornir.core.task import AggregatedResult
+from netarsenal.mock import Marsenal
+from ntc_templates.parse import parse_output
 
 
 # Find out how to import
@@ -60,16 +64,25 @@ class MockArsenal(object):
     mock_command = ""
 
     def __init__(self, path=None, key=0):
+        print("Creating Mock Object")
         logging.info("Creating MockIOS Object")
         logging.debug("Checking if {} is valid".format(path))
         self.opendb(path, True)
 
     def __extract_mock_data(self, task, **kwargs):
+
+        # Variables
+        real_command = False
         # Extract mock data from path.
         # validate errors
         if "mock" in task.host.platform:
             real_platform = task.host.platform.split("-")[1]
-            command = return_platform_function(kwargs["command_string"])
+            if "command_string" in kwargs:
+                command = kwargs["command_string"]
+                real_command = True
+            else:
+                command = return_platform_function(kwargs["command_string"])
+
             table_devices = self.db.table("devices")
             device_exists = table_devices.search(
                 self.query.device_name == task.host.name
@@ -79,11 +92,20 @@ class MockArsenal(object):
                 extract = device_exists[0][
                     "state{}".format(device_exists[0]["last_state_dict_id"])
                 ]
-                if command[real_platform] == extract["command"]:
-                    data = base64.decodestring(extract["data"].encode()).decode("utf-8")
-                    return data
+                if real_command:
+                    if command == extract["command"]:
+                        data = base64.decodestring(extract["data"].encode()).decode(
+                            "utf-8"
+                        )
+                        return data
                 else:
-                    return "Timeout"
+                    if command[real_platform] == extract["command"]:
+                        data = base64.decodestring(extract["data"].encode()).decode(
+                            "utf-8"
+                        )
+                        return data
+                    else:
+                        raise mockex.MockSimulateFailure
             else:
                 raise mockex.MockDeviceNotFound
 
@@ -117,12 +139,13 @@ class MockArsenal(object):
             self.valid_mock = False
             self.save_state = False
 
-    def record(self, db_file=None):
+    def record(self, db_file=None) -> int:
         if self.valid_mock:
             self.save_state = True
             self.use_mock = False
             if not self.state_id:
                 self.state_id = random.randrange(1000, 10000)
+                return self.state_id
         else:
             raise mockex.InvalidMockDataFile
 
@@ -143,12 +166,33 @@ class MockArsenal(object):
         else:
             return False
 
-    def mock_send_command(self, nornir=object, mock=object, use_textfsm=False):
-        command = mock.mock_command
+    def _send_command(self, devices: Nornir, *args, **kwargs):
+
+        # Variables
+        use_textfsm = False
+        command = ""
+
+        # Implementation
+        if "command_string" in kwargs:
+            command = kwargs["command_string"]
+        else:
+            command = self.mock_command
+        if "use_textfsm" in kwargs:
+            use_textfsm = kwargs["use_textfsm"]
+
         params = {
             "command_string": command,
         }
-        result = nornir.run(task=self.__extract_mock_data, **params)
+
+        # result = devices.run(task=self.__extract_mock_data, **params)
+        result = devices.run(task=self.__extract_mock_data, num_workers=1, **params)
+        for device in result:
+            if use_textfsm and result[device].result != "Timeout":
+                result[device][0].result = parse_output(
+                    platform=devices.inventory.hosts[device].platform.split("-")[1],
+                    command=command,
+                    data=result[device].result,
+                )
         return result
 
     def change_platform(self, nornir):

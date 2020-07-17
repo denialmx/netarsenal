@@ -4,7 +4,7 @@ import ruamel.yaml
 import re
 from copy import deepcopy, copy
 
-from nornir import InitNornir
+from nornir import InitNornir as Nornir
 from nornir.core.filter import F
 
 from netarsenal.cisco.ios import iosarsenal
@@ -12,6 +12,7 @@ from netarsenal.cisco.nxos import nxosarsenal
 from netarsenal.cisco.wlc import wlcarsenal
 from netarsenal.mock import Marsenal
 import netarsenal.cons as cons
+import netarsenal.helpers as nethelpers
 import netarsenal.exceptions as netex
 
 # definitions
@@ -27,61 +28,80 @@ class NetArsenal(object):
     textfm = object
 
     arsenal = {
-        "ios": iosarsenal.IOSArsenal(),
+        "cisco_ios": iosarsenal.IOSArsenal(),
         "nxos": nxosarsenal.NXOSArsenal(),
         "mock": Marsenal.MockArsenal(),
-        "wlc": wlcarsenal.WLCArsenal(),
+        "cisco_wlc_ssh": wlcarsenal.WLCArsenal(),
         "viptela": object,
-        "iosxe": object,
     }
+
+    ios = arsenal["cisco_ios"]
+    nxos = arsenal["nxos"]
+    mock = arsenal["mock"]
+    wlc = arsenal["cisco_wlc_ssh"]
 
     # init
     def __init__(self, configfile, num_workers, mock_path=None):
         if mock_path:
-            self.arsenal["mock"].opendb(mock_path, True)
-        self.nornir = InitNornir(
+            self.mock.opendb(mock_path, True)
+        self.nornir = Nornir(
             config_file=configfile,
             core={"num_workers": num_workers},
             inventory={"plugin": "netarsenal.inventory.include.Includentory"},
         )
 
-    def _mock_record(self, db_file=None):
-        self.arsenal["mock"].record()
+    def mock_record(self, db_file=None) -> int:
+        return self.mock.record()
 
     def _mock_pause(self):
-        self.arsenal["mock"].pause()
+        self.mock.pause()
 
-    def _mock_check(self):
-        return self.arsenal["mock"].check()
+    def mock_check(self):
+        return self.mock.check()
 
-    def _mock_start(self):
-        return self.arsenal["mock"].start()
+    def mock_start(self):
+        return self.mock.start()
+
+    def _build_parameters(self, parameters):
+        # Variables
+        params = {}
+
+        # Implementation
+        if "use_textfsm" in parameters:
+            params.update({"use_textfsm": parameters["use_textfsm"]})
+        if "command" in parameters:
+            params.update({"command_string": parameters["command"]})
+        return params
 
     def __execute_and_aggregate(
-        self, nornir: InitNornir, divider: str = "platform", *args, **kwargs
-    ):
-        command_picker = sys._getframe(1).f_code.co_name
-        functions_to_call = cons.return_platform_function(command_picker)
-        # TODO validate nornir is object of InitNornir
-        t_nornir = deepcopy(nornir)
-        pop = dict(t_nornir.inventory.hosts)
-        current_pop_filter = None
-        results = []
+        self, devices: Nornir, divider: str = "platform", *args, **kwargs
+    ) -> list:
 
-        if self._mock_check():
-            mock = copy(self.arsenal["mock"])
-            if mock.use_mock:
-                mock.change_platform(t_nornir)
-                mock.mock_command = command_picker
-        else:
-            mock = None
+        # Variables
+        results = []
+        current_pop_filter = ""
+        parameters = {}
+
+        # Implementation
+        # Check for kwargs and build parameters to send to function_to_call
+        parameters = self._build_parameters(kwargs)
+        source_function = sys._getframe(1).f_code.co_name
+        function_to_call = cons.return_platform(source_function)
+        # TODO validate nornir is object of Nornir
+        t_devices = deepcopy(devices)
+        pop = dict(t_devices.inventory.hosts)
+
+        if self.mock_check():
+            if self.mock.use_mock:
+                self.mock.change_platform(t_devices)
+                self.mock.mock_command = source_function
 
         while len(pop) > 0:
             if len(pop) > 1:
                 completed = []
-                for host in list(t_nornir.inventory.hosts):
+                for host in list(t_devices.inventory.hosts):
                     # Check platform of host
-                    pop_filter = getattr(t_nornir.inventory.hosts[host], divider)
+                    pop_filter = getattr(t_devices.inventory.hosts[host], divider)
                     # split pop_filter with an -
                     # pop_filter[0] will always have the right platform, either
                     # ios, nxos, mock
@@ -89,38 +109,44 @@ class NetArsenal(object):
                     if not current_pop_filter:
                         current_pop_filter = pop_filter
                     if pop_filter != current_pop_filter:
-                        t_nornir.inventory.hosts.pop(host)
+                        t_devices.inventory.hosts.pop(host)
                     else:
                         completed.append(host)
 
                 # TODO
                 # Error handling if platform does not exist
                 try:
-                    N = getattr(
-                        self.arsenal[current_pop_filter],
-                        functions_to_call[current_pop_filter],
-                    )
-                    result = N(t_nornir, use_textfsm=True, mock=mock)
+                    if "|" in function_to_call[current_pop_filter]:
+                        FN = function_to_call[current_pop_filter].split("|")
+                        function_to_call = FN[0]
+                        command = FN[1]
+                        parameters.update({"command_string": command})
+                    else:
+                        function_to_call = function_to_call[current_pop_filter]
+                    N = getattr(self.arsenal[current_pop_filter], function_to_call)
+                    result = N(t_devices, self.mock, **parameters)
                     results.append(result)
                 except KeyError as e:
                     print(e)
-                if len(t_nornir.inventory.hosts) > 1:
-                    t_nornir.inventory.hosts = dict(pop)
+                if len(t_devices.inventory.hosts) > 1:
+                    t_devices.inventory.hosts = dict(pop)
                     for index in range(0, len(completed), 1):
-                        t_nornir.inventory.hosts.pop(completed[index])
-                    pop = dict(t_nornir.inventory.hosts)
+                        t_devices.inventory.hosts.pop(completed[index])
+                    pop = dict(t_devices.inventory.hosts)
                     current_pop_filter = None
                     index = 0
             else:
-                host = next(iter(t_nornir.inventory.hosts))
+                host = next(iter(t_devices.inventory.hosts))
                 # Check platform of host
-                current_pop_filter = getattr(t_nornir.inventory.hosts[host], divider)
+                current_pop_filter = getattr(t_devices.inventory.hosts[host], divider)
                 current_pop_filter = current_pop_filter.split("-")[0]
-                N = getattr(
-                    self.arsenal[current_pop_filter],
-                    functions_to_call[current_pop_filter],
-                )
-                result = N(t_nornir, use_textfsm=True, mock=mock)
+                if "|" in function_to_call[current_pop_filter]:
+                    FN = function_to_call[current_pop_filter].split("|")
+                    function_to_call = FN[0]
+                    command = FN[1]
+                    parameters.update({"command_string": command})
+                N = getattr(self.arsenal[current_pop_filter], function_to_call)
+                result = N(t_devices, self.mock, **parameters)
                 results.append(result)
                 pop.pop(host)
         return results
@@ -173,39 +199,82 @@ class NetArsenal(object):
         return result
 
     def _get_l2_neighbors(self, nornir=object, *args, **kwargs):
-        if "use_textfsm" in kwargs:
-            use_textfsm = True
-        else:
-            use_textfsm = False
 
-        results = self.__execute_and_aggregate(
-            nornir, divider="platform", use_textfsm=use_textfsm
-        )
+        # Variables
+        use_textfsm = False
+
+        # Implementation
+        if "use_textfsm" in kwargs:
+            use_textfsm = kwargs["use_textfsm"]
+
+        results = self.__execute_and_aggregate(nornir, use_textfsm=use_textfsm)
         return results
 
-    def discover_l2_devices(self, nornir=object, *args, **kwargs):
-        devices = {}
-        discovery = {}
-        t_nornir = deepcopy(nornir)
+    def discover_l2_devices(self, devices: Nornir, *args, **kwargs):
+
+        # Variables
+        l2_neighbors = {}
+        t_nornir = deepcopy(devices)
         completed = []
+        use_textfsm = False
+
+        # Implementation
+        if "structured" in kwargs:
+            use_textfsm = kwargs["structured"]
+        if "ignorelist" in kwargs:
+            completed = kwargs["ignorelist"]
 
         if t_nornir:
             new_host = deepcopy(self.nornir.inventory.hosts["NEWHOST"])
-            results = self._get_l2_neighbors(t_nornir)
+            results = self._get_l2_neighbors(t_nornir, use_textfsm=use_textfsm)
             for platform in results:
                 for host in platform:
-                    devices[host] = deepcopy(t_nornir.inventory.hosts[host])
+                    # l2_neighbors[host] = deepcopy(t_nornir.inventory.hosts[host])
+                    groups = devices.inventory.hosts[host].groups.data
                     # Build nornir object dynamically
                     for l2_device in platform[host].result:
-                        # Eliminate duplicates by hasing perhaps?
-                        new_host.name = l2_device["destination_host"]
-                        new_host.hostname = l2_device["management_ip"]
-                        # Probably a callable functions to get IOS, NXOS, IOS-XE, IOS-XR, JUNOS
-                        # to detect which platform it should use for callable_functions
-                        new_host.platform = "ios"
-                        devices[new_host.name] = deepcopy(new_host)
-                completed.append(host)
-            t_nornir.inventory.hosts = devices
-            # Enter loop to continue searching up to X level
-            new_hosts = self._get_l2_neighbors(t_nornir)
+                        root_exists = nethelpers.check_regex_in_list(host, completed)
+                        if not root_exists:
+                            if not nethelpers.check_regex_in_list(
+                                l2_device["destination_host"], completed
+                            ) and not nethelpers.check_regex_in_list(
+                                l2_device["destination_host"], host
+                            ):
+                                platform_values = cons.return_platform(
+                                    l2_device["platform"], "models"
+                                )
+                                # We are not interested in devices with no model defined in cons.py
+                                if platform_values:
+                                    new_host.name = l2_device["destination_host"]
+                                    new_host.hostname = l2_device["management_ip"]
+                                    new_host.platform = platform_values["platform"]
+                                    new_host.data["type"] = platform_values["type"]
+                                    new_host.data["vendor"] = platform_values["vendor"]
+                                    new_host.groups = groups
+                                    l2_neighbors[new_host.name] = deepcopy(new_host)
+                                    completed.append(new_host.name)
+                        else:
+                            root_name = nethelpers.check_regex_in_list(
+                                host, completed, match=True
+                            )
+                            l2_neighbors.pop(root_name)
+                            completed.remove(root_name)
         return devices
+
+    # ----------------- #
+    # CISCO WLC METHODS #
+    # ----------------- #
+
+    def get_all_waps(self, devices: Nornir, *args, **kwargs):
+
+        # Variables
+        result = {}
+        use_textfsm = False
+
+        # Implementation
+        if "use_textfsm" in kwargs:
+            use_textfsm = kwargs["use_textfsm"]
+
+        result = self.__execute_and_aggregate(devices, use_textfsm=use_textfsm)
+        return result
+

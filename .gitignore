@@ -14,6 +14,8 @@ netarsenal/config/*
 
 # other files
 go.py
+wlc_move_ap.py
+discover_from_core.py
 *.log
 tests/mock/*.json
 
