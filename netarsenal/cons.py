@@ -11,6 +11,7 @@ platform_mapping = {
             "nxos": "_send_command|show cdp neighbors detail",
             "mock": "_send_command|show cdp neighbors detail",
         },
+        "_get_facts": {"cisco_ios": "_get_facts", "mock": "_get_facts",},
         "get_all_waps": {
             "cisco_wlc_ssh": "_send_command|show ap summary",
             "mock": "_send_command|show ap summary",
@@ -18,6 +19,12 @@ platform_mapping = {
     },
     "models": {
         "C2960": {
+            "type": "network_switch",
+            "vendor": "cisco",
+            "platform": "cisco_ios",
+            "ios": "cat2960",
+        },
+        "C2970": {
             "type": "network_switch",
             "vendor": "cisco",
             "platform": "cisco_ios",
@@ -52,16 +59,31 @@ platform_mapping = {
             "vendor": "cisco",
             "platform": "cisco_ios",
         },
-        "ISR4331": {
-            "type": "network_router",
+        "C3560C": {
+            "type": "network_switch",
             "vendor": "cisco",
             "platform": "cisco_ios",
         },
-        "C819G": {
-            "type": "network_router",
+        "C3560": {
+            "type": "network_switch",
             "vendor": "cisco",
             "platform": "cisco_ios",
         },
+        "BR1310G": {
+            "type": "network_switch",
+            "vendor": "cisco",
+            "platform": "cisco_ios",
+        },
+        # "ISR4331": {
+        #    "type": "network_router",
+        #    "vendor": "cisco",
+        #    "platform": "cisco_ios",
+        # },
+        # "C819G": {
+        #    "type": "network_router",
+        #    "vendor": "cisco",
+        #    "platform": "cisco_ios",
+        # },
         # "^Cisco IP Phone": {
         #    "type": "ip_phone",
         #    "vendor": "cisco",
@@ -71,7 +93,7 @@ platform_mapping = {
 }
 
 
-def return_platform(name: str, types: str = "functions") -> dict:
+def return_platform(name: str, types: str = "functions", *args, **kwargs) -> dict:
     """ Return platform specific data
 
     Args:

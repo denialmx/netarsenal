@@ -3,7 +3,7 @@ import netarsenal.exceptions as netex
 import re
 
 # constants
-def check_regex_in_list(pattern: str, stringlist: dict, *args, **kwargs) -> any:
+def check_regex_in_list(pattern: str, stringlist: list, *args, **kwargs) -> any:
 
     return_bool = True
 
