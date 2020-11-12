@@ -4,6 +4,7 @@ from nornir import InitNornir as Nornir
 from nornir.core.task import AggregatedResult
 from netarsenal.mock import Marsenal
 import netarsenal.cisco.wlc.wlcex as wlcex
+from easysnmp import Session
 
 # definitions
 
@@ -20,10 +21,11 @@ class WLCArsenal(object):
 
         # Variables
         command = ""
-        use_textfsm = False
+        use_textfsm = True
 
-        if "use_textfsm" in kwargs and "command_string" in kwargs:
+        if "use_textfsm" in kwargs:
             use_textfsm = kwargs["use_textfsm"]
+        if "command_string" in kwargs:
             command = kwargs["command_string"]
 
         params = {
@@ -31,11 +33,11 @@ class WLCArsenal(object):
             "use_textfsm": use_textfsm,
         }
 
-        if mock:
+        if mock != None and mock.save_state:
             params["use_textfsm"] = False
         if devices:
             result = devices.run(task=netmiko_send_command, **params)
-        if mock:
+        if mock != None and mock.save_state:
             for device in result:
                 mock.save_state_of_device(device, result[device].result, command)
                 if use_textfsm:
@@ -80,19 +82,5 @@ class WLCArsenal(object):
                     result.update({device: False})
             else:
                 result.update({device: False})
-
-        return result
-
-    def get_all_aps(self, devices: Nornir, *args, **kwargs):
-
-        # Variables
-        result = {}
-        use_textfsm = False
-        command = "show ap summary"
-
-        # Implementation
-        if "use_textfsm" in kwargs:
-            use_textfsm = kwargs["use_textfsm"]
-        data = self._send_command(devices, command_string=command, use_textfsm=True)
 
         return result

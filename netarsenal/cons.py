@@ -16,9 +16,18 @@ platform_mapping = {
             "cisco_wlc_ssh": "_send_command|show ap summary",
             "mock": "_send_command|show ap summary",
         },
+        "get_ap_config": {
+            "cisco_wlc_ssh": "_send_command|show ap config general <ap_name>"
+        },
     },
     "models": {
-        "C2960": {
+        "C2960X": {
+            "type": "network_switch",
+            "vendor": "cisco",
+            "platform": "cisco_ios",
+            "ios": "cat2960",
+        },
+        "C2960S": {
             "type": "network_switch",
             "vendor": "cisco",
             "platform": "cisco_ios",
@@ -69,11 +78,11 @@ platform_mapping = {
             "vendor": "cisco",
             "platform": "cisco_ios",
         },
-        "BR1310G": {
-            "type": "network_switch",
-            "vendor": "cisco",
-            "platform": "cisco_ios",
-        },
+        # "BR1310G": {
+        #    "type": "network_switch",
+        #    "vendor": "cisco",
+        #    "platform": "cisco_ios",
+        # },
         # "ISR4331": {
         #    "type": "network_router",
         #    "vendor": "cisco",

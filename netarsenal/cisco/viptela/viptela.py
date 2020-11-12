@@ -11,9 +11,9 @@ from nornir.plugins.tasks.networking import netmiko_send_config
 # class
 
 
-class IOSArsenal(object):
+class ViptelaArsenal(object):
     def __init__(self):
-        print("Creating IOS Object")
+        print("Creating Viptela Object")
 
     def _send_command(
         self, devices: Nornir, mock: Marsenal = None, *args, **kwargs
