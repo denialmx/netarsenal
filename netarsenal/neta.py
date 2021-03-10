@@ -19,6 +19,10 @@ import netarsenal.cons as cons
 import netarsenal.helpers as nethelpers
 import netarsenal.exceptions as netex
 
+from os import environ
+
+environ["NET_TEXTFSM"] = "ntc-templates/templates/"
+
 # definitions
 
 # class
@@ -122,22 +126,6 @@ class NetArsenal(object):
         # TODO validate attributes are correct
         attribute_list = ""
         filter_dictionary = {}
-
-        for attribute in kwargs:
-            if "," in kwargs[attribute]:
-                attribute_list = kwargs[attribute].split(",")
-            else:
-                attribute_list = kwargs[attribute].split()
-            for value in attribute_list:
-                value = value.strip()
-                if value:
-                    filter_dictionary[attribute] = value
-        f = F(**filter_dictionary)
-        return self.nornir.filter(f)
-
-    def dfilter(self, *args, **kwargs):
-        # TODO implement attr name
-        attribute_list = ""
         filter_list = []
 
         for attribute in kwargs:
@@ -149,43 +137,13 @@ class NetArsenal(object):
             for value in attribute_list:
                 value = value.strip()
                 if value:
-                    # TODO input a Dict to avoid if cases
-                    # For example f = F(**{'site':'value'})
-                    if attribute == "site":
-                        if initiator:
-                            f = F(site=value)
-                            initiator = False
-                        else:
-                            f = f | F(site=value)
-                        continue
-                    if attribute == "role":
-                        if initiator:
-                            f = F(role=value)
-                            initiator = False
-                        else:
-                            f = f | F(role=value)
-                        continue
-                    if attribute == "platform":
-                        if initiator:
-                            f = F(platform=value)
-                            initiator = False
-                        else:
-                            f = f | F(platform=value)
-                        continue
-                    if attribute == "name":
-                        if initiator:
-                            f = F(name=value)
-                            initiator = False
-                        else:
-                            f = f | F(name=value)
-                        continue
-                    if attribute == "type":
-                        if initiator:
-                            f = F(type=value)
-                            initiator = False
-                        else:
-                            f = f | F(type=value)
-                        continue
+                    filter_dictionary[attribute] = value
+                    if initiator:
+                        f = F(**filter_dictionary)
+                        initiator = False
+                    else:
+                        f = f | F(**filter_dictionary)
+                    filter_dictionary = {}
             filter_list.append(f)
 
         for i in range(len(filter_list)):
@@ -194,12 +152,93 @@ class NetArsenal(object):
             else:
                 f = f & filter_list[i]
 
-        result = self.nornir.filter(f)
-        return result
+        return self.nornir.filter(f)
 
     #############
     # INTERNALS #
     #############
+
+    def execute(
+        self, devices: Nornir, getter: str, divider: str = "platform", *args, **kwargs
+    ) -> list:
+
+        # Variables
+        results = []
+        current_pop_filter = ""
+        parameters = {}
+
+        # Implementation
+        # Check for kwargs and build parameters to send to function_to_call
+        source_function = getter
+        function_to_call = cons.return_platform(source_function)
+        parameters = self._build_parameters(kwargs, function_to_call)
+        # TODO validate nornir is object of Nornir
+        # Check for thread.Lock
+        original_hosts = dict(devices.inventory.hosts)
+        pop = dict(devices.inventory.hosts)
+
+        if self.mock_check():
+            if self.mock.use_mock:
+                self.mock.change_platform(devices)
+                self.mock.mock_command = source_function
+
+        while len(pop) > 0:
+            if len(pop) > 1:
+                completed = []
+                for host in list(devices.inventory.hosts):
+                    # Check platform of host
+                    pop_filter = getattr(devices.inventory.hosts[host], divider)
+                    # split pop_filter with an -
+                    # pop_filter[0] will always have the right platform, either
+                    # ios, nxos, mock
+                    pop_filter = pop_filter.split("-")[0]
+                    if not current_pop_filter:
+                        current_pop_filter = pop_filter
+                    if pop_filter != current_pop_filter:
+                        devices.inventory.hosts.pop(host)
+                    else:
+                        completed.append(host)
+
+                # TODO
+                # Error handling if platform does not exist
+                try:
+                    if "|" in function_to_call[current_pop_filter]:
+                        FN = function_to_call[current_pop_filter].split("|")
+                        function_to_call = FN[0]
+                        command = FN[1]
+                        parameters.update({"command_string": command})
+                    else:
+                        function_to_call = function_to_call[current_pop_filter]
+                    N = getattr(self.arsenal[current_pop_filter], function_to_call)
+                    result = N(devices, self.mock, **parameters)
+                    results.append(result)
+                except KeyError as e:
+                    print(e)
+                if len(devices.inventory.hosts) > 1:
+                    devices.inventory.hosts = dict(pop)
+                    for index in range(0, len(completed), 1):
+                        devices.inventory.hosts.pop(completed[index])
+                    pop = dict(devices.inventory.hosts)
+                    current_pop_filter = None
+                    index = 0
+            else:
+                host = next(iter(devices.inventory.hosts))
+                # Check platform of host
+                current_pop_filter = getattr(devices.inventory.hosts[host], divider)
+                current_pop_filter = current_pop_filter.split("-")[0]
+                if "|" in function_to_call[current_pop_filter]:
+                    FN = function_to_call[current_pop_filter].split("|")
+                    function_to_call = FN[0]
+                    command = FN[1]
+                    parameters.update({"command_string": command})
+                else:
+                    function_to_call = function_to_call[current_pop_filter]
+                N = getattr(self.arsenal[current_pop_filter], function_to_call)
+                result = N(devices, self.mock, **parameters)
+                results.append(result)
+                pop.pop(host)
+        devices.inventory.hosts = original_hosts
+        return results
 
     def __execute_and_aggregate(
         self, devices: Nornir, divider: str = "platform", *args, **kwargs
@@ -291,9 +330,28 @@ class NetArsenal(object):
         except:
             return ""
 
+    def getter(self, device: Nornir, getter: str, *args, **kwargs):
+        """[summary]
+
+        Args:
+            device (Nornir): [description]
+            getter (str): [description]
+
+        Returns:
+            [type]: [description]
+        """
+        # validate()
+        return self.execute(device, getter)
+
     # ----------------- #
     # CISCO SW METHODS  #
     # ----------------- #
+
+    def _get_facts(self, devices: Nornir, *args, **kwargs):
+        # Get some facts from devices like, model, vendor, os version, serial numbers, stacks?
+        # Possibly others in the future
+        result = self.__execute_and_aggregate(devices)
+        return result
 
     def _get_l2_neighbors(self, devices, *args, **kwargs):
         # Variables
@@ -331,12 +389,6 @@ class NetArsenal(object):
                     l2_neighbors[site][current_host.host.name] = current_host
         return l2_neighbors
 
-    def _get_facts(self, devices: Nornir, *args, **kwargs):
-        # Get some facts from devices like, model, vendor, os version, serial numbers, stacks?
-        # Possibly others in the future
-        result = self.__execute_and_aggregate(devices)
-        return result
-
     def discover_l2_devices(self, devices: Nornir, *args, **kwargs):
         # TODO Include antennas and their commands
         # Variables
@@ -369,6 +421,7 @@ class NetArsenal(object):
                         self.log(
                             "warn", "Looking for new neighbors in {}".format(device)
                         )
+                        device_ip = t_devices.inventory.hosts[device].hostname
                         t_devices.inventory.hosts.pop(device)
                         group = site
                         if results[site][device].failed:
@@ -411,8 +464,11 @@ class NetArsenal(object):
                                     else:
                                         self.log(
                                             "warn",
-                                            "Device {} not found in valid platform. Ignoring".format(
-                                                current_neighbor
+                                            "[{}({})] Device {} connected on {} not found in valid platform. Ignoring".format(
+                                                device,
+                                                device_ip,
+                                                current_neighbor,
+                                                seen_neighbor["local_port"],
                                             ),
                                         )
                         t_devices.inventory.hosts.update(l2_neighbors)

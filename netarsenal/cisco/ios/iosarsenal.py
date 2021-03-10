@@ -4,6 +4,7 @@ from netarsenal.mock import Marsenal
 from nornir.core.task import AggregatedResult
 from nornir.plugins.tasks.networking import netmiko_send_command
 from nornir.plugins.tasks.networking import netmiko_send_config
+from nornir.plugins.tasks.networking import netmiko_file_transfer
 
 
 # definitions
@@ -99,15 +100,32 @@ class IOSArsenal(object):
             devices, mock, command="show vtp status", use_textfsm=True
         )
 
+        ipaddress = self._send_command(
+            devices,
+            mock,
+            command="show ip interface brief | exclude unassigned",
+            use_textfsm=True,
+        )
+
         for device in version:
             if not version[device].failed:
                 if len(version[device].result[0]["hardware"]) > 1:
                     version[device].result[0].update({"stack": True})
                 else:
                     version[device].result[0].update({"stack": False})
-
-        for device in vtp:
-            if not vtp[device].failed:
-                version[device].result[0].update({"vtp": vtp[device].result[0]})
+                if not ipaddress[device].failed:
+                    version[device].result[0].update(
+                        {"ip_address": ipaddress[device].result[0]["ipaddr"]}
+                    )
+                if not vtp[device].failed:
+                    version[device].result[0].update({"vtp": vtp[device].result[0]})
 
         return version
+
+    def _upload(self, devices: Nornir, mock: Marsenal = None, *args, **kwargs):
+        file_system = "flash:"
+        if "source" in kwargs:
+            source = kwargs["source"]
+        if "file_system" in kwargs:
+            file_system = kwargs["source"]
+        direction = "put"

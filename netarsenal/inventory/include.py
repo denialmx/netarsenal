@@ -37,16 +37,18 @@ class Includentory(Inventory):
                 # Open the host file
                 with open(host_file_path, "r") as host_file:
                     hosts_include = yml.load(host_file)
-                    #
+                    # Load the YML into Dict
                     for i in range(len(hosts_include["config"]["include"])):
                         # validate file actually exists
                         # put a flag to continue?
-                        with open(
-                            hosts_include["config"]["include"][i]
-                        ) as include_host_file:
-                            if isinstance(hosts, dict):
-                                hosts.update(yml.load(include_host_file))
-
+                        try:
+                            with open(
+                                hosts_include["config"]["include"][i]
+                            ) as include_host_file:
+                                if isinstance(hosts, dict):
+                                    hosts.update(yml.load(include_host_file))
+                        except:
+                            1
             # Open the groups file
             if "groups.yml" in kwargs["group_file"]:
                 group_file_path = kwargs["group_file"]

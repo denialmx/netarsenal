@@ -49,6 +49,22 @@ class WLCArsenal(object):
 
         return result
 
+    def _get_ssid_info(self, devices: Nornir, *args, **kwargs) -> dict:
+        """
+        Args:
+            devices (Nornir): [description]
+        Returns:
+            dict: [description]
+        """
+        flexconnect_groups = self._send_command(
+            devices, command_string="show flexconnect group summary", use_textfsm=True
+        )
+
+        wlan_apgroups = self._send_command(
+            devices, command_string="show wlan apgroups", use_textfsm=True
+        )
+        return flexconnect_groups
+
     def ap_exists(self, devices: Nornir, *args, **kwargs) -> dict:
         """Check if an AP (name) exists in a WLC
 

@@ -11,6 +11,11 @@ platform_mapping = {
             "nxos": "_send_command|show cdp neighbors detail",
             "mock": "_send_command|show cdp neighbors detail",
         },
+        "_get_subnets": {
+            "cisco_ios": "_get_subnets",
+            "nxos": "_get_subnets",
+            "mock": "_get_subnets",
+        },
         "_get_facts": {"cisco_ios": "_get_facts", "mock": "_get_facts",},
         "get_all_waps": {
             "cisco_wlc_ssh": "_send_command|show ap summary",
@@ -19,13 +24,20 @@ platform_mapping = {
         "get_ap_config": {
             "cisco_wlc_ssh": "_send_command|show ap config general <ap_name>"
         },
+        "get_ssid_info": {"cisco_wlc_ssh": "_get_ssid_info",},
     },
     "models": {
         "C2960X": {
             "type": "network_switch",
             "vendor": "cisco",
             "platform": "cisco_ios",
-            "ios": "cat2960",
+            "ios": "cat2960x",
+        },
+        "C2960CX": {
+            "type": "network_switch",
+            "vendor": "cisco",
+            "platform": "cisco_ios",
+            "ios": "cat2960cx",
         },
         "C2960S": {
             "type": "network_switch",
